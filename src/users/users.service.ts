@@ -1,89 +1,41 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { UserRepository } from './user.repository';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { NotFoundException } from '@nestjs/common';
+import { UserRole } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
-  private users = [
-    {
-      id: 1,
-      name: 'kavi',
-      email: 'kavi@gmial.com',
-      role: 'INTERN',
-    },
-    {
-      id: 2,
-      name: 'abey',
-      email: 'abey@gmial.com',
-      role: 'ENGINEER',
-    },
-    {
-      id: 3,
-      name: 'chamal',
-      email: 'chamal@gmial.com',
-      role: 'INTERN',
-    },
-    {
-      id: 4,
-      name: 'kevin',
-      email: 'kevin@gmial.com',
-      role: 'ENGINEER',
-    },
-    {
-      id: 5,
-      name: 'hasi',
-      email: 'hasi@gmial.com',
-      role: 'ADMIN',
-    },
-  ];
+  constructor(private readonly userRepository: UserRepository) {}
 
-  findAll(role?: 'INTERN' | 'ENGINEER' | 'ADMIN') {
-    if (role) {
-      const rolesArray = this.users.filter((user) => user.role === role);
-
-      if (rolesArray.length === 0)
-        throw new NotFoundException('No users with this role');
-      return rolesArray;
+  async findAll(role?: UserRole) {
+    const users = await this.userRepository.findAll(role);
+    if (role && users.length === 0) {
+      throw new NotFoundException('No users with this role');
     }
-    return this.users;
+    return users;
   }
 
-  findOne(id: number) {
-    const user = this.users.find((user) => user.id === id);
-
-    if (!user) throw new NotFoundException(`User not FOund`);
-
+  async findOne(id: number) {
+    const user = await this.userRepository.findOne(id);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
     return user;
   }
 
   create(createUserDto: CreateUserDto) {
-    const usersByHighestId = [...this.users].sort((a, b) => b.id - a.id);
-    const newUser = {
-      id: usersByHighestId[0].id + 1,
-      ...createUserDto,
-    };
-    this.users.push(newUser);
-    return newUser;
+    return this.userRepository.create(createUserDto);
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    this.users = this.users.map((user) => {
-      if (user.id === id) {
-        return {
-          ...user,
-          ...updateUserDto,
-        };
-      }
-      return user;
-    });
-
-    return this.findOne(id);
+  async update(id: number, updateUserDto: UpdateUserDto) {
+    await this.findOne(id); // Check if user exists
+    return this.userRepository.update(id, updateUserDto);
   }
 
-  delete(id: number) {
-    const removedUser = this.findOne(id);
-    this.users = this.users.filter((user) => user.id !== id);
-    return removedUser;
+  async remove(id: number) {
+    await this.findOne(id); // Check if user exists
+    await this.userRepository.remove(id);
+    return { message: `User with ID ${id} deleted successfully` };
   }
 }
